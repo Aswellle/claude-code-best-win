@@ -278,3 +278,29 @@ bun run typecheck          # equivalent to bun run typecheck
 - **Biome 配置** — 大量 lint 规则被关闭（decompiled 代码不适合严格 lint）。`.tsx` 文件用 120 行宽 + 强制分号；其他文件 80 行宽 + 按需分号。
 - **Ink 框架在 `packages/@ant/ink/`** — 不是 `src/ink/`（该目录不存在）。Ink 相关的组件、hooks、keybindings 都在 packages 中。
 - **Provider 优先级** — `modelType` 参数 > 环境变量 > 默认 `firstParty`。新增 provider 需在 `src/utils/model/providers.ts` 注册。
+
+## Windows Packaging
+
+Produces a standalone installer (`packaging/ClaudeCodeBest-Setup-2.1.888.exe`) via:
+
+```
+src/entrypoints/cli.tsx
+  → bun run packaging/build-compile.ts   (Bun.build compile=true)
+  → packaging/output/claude-core.exe     (138 MB, embeds Bun runtime)
+  → ps2exe launcher.ps1                  → packaging/output/ClaudeCode.exe (37 KB launcher)
+  → Inno Setup installer.iss             → packaging/ClaudeCodeBest-Setup-*.exe
+```
+
+**One-shot build** (PowerShell from project root):
+
+```powershell
+.\packaging\build-exe.ps1           # full build
+.\packaging\build-exe.ps1 -SkipBuild  # packaging only, reuse existing exe
+```
+
+**Updating the version** — must change in all three places:
+1. `"version"` in `package.json`
+2. `MACRO.VERSION` in `scripts/defines.ts`
+3. `#define MyAppVersion` in `packaging/installer.iss`
+
+The installer places files in `%LOCALAPPDATA%\ClaudeCodeBest\` (no admin required) and adds it to user PATH. `audio-capture.node` must sit beside `claude-core.exe` for Voice Mode to load.

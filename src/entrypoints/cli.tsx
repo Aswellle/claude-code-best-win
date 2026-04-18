@@ -74,6 +74,24 @@ if (feature('ABLATION_BASELINE') && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
 
+  // --cwd <path>: injected by the Windows launcher (launcher.ps1) to forward the
+  // caller's working directory into a freshly-spawned terminal window.
+  // Must run before getCwd() / Commander see process.argv, so strip it here.
+  {
+    const cwdIdx = args.indexOf('--cwd')
+    if (cwdIdx !== -1 && args[cwdIdx + 1]) {
+      try {
+        process.chdir(args[cwdIdx + 1]!)
+      } catch {
+        // Silently ignore invalid paths — fall back to the exe's own directory.
+      }
+      // Strip --cwd + its value from argv so Commander doesn't see an unknown option.
+      const argvIdx = process.argv.indexOf('--cwd')
+      if (argvIdx !== -1) process.argv.splice(argvIdx, 2)
+      args.splice(cwdIdx, 2)
+    }
+  }
+
   // Fast-path for --version/-v: zero module loading needed
   if (
     args.length === 1 &&

@@ -80,6 +80,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon";    Description: "Create a &desktop shortcut";     GroupDescription: "Additional icons:"
 Name: "startmenuicon";  Description: "Create a &Start Menu shortcut";  GroupDescription: "Additional icons:"
 Name: "addtopath";      Description: "Add install directory to &PATH (recommended)"; GroupDescription: "System integration:"
+Name: "contextmenu";    Description: "Add ""Open Claude Code Best here"" to folder right-click menu"; GroupDescription: "System integration:"
 
 [Files]
 ; ---------- Core executable ----------
@@ -128,6 +129,31 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; \
     ValueData: "{olddata};{app}"; \
     Check: PathNotExists('{app}'); \
     Tasks: addtopath
+
+; ---------- Explorer right-click: "Open Claude Code Best here" ----------
+; Right-click ON a folder in Explorer
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\ClaudeCodeBest"; \
+    ValueType: string; ValueName: ""; ValueData: "Open Claude Code Best here"; \
+    Flags: uninsdeletekey; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\ClaudeCodeBest"; \
+    ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; \
+    Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\ClaudeCodeBest\command"; \
+    ValueType: string; ValueName: ""; \
+    ValueData: """{app}\{#MyAppExeName}"" --cwd ""%1"""; \
+    Flags: uninsdeletekey; Tasks: contextmenu
+
+; Right-click on the BACKGROUND inside a folder (the folder itself)
+Root: HKCU; Subkey: "Software\Classes\Directory\Background\shell\ClaudeCodeBest"; \
+    ValueType: string; ValueName: ""; ValueData: "Open Claude Code Best here"; \
+    Flags: uninsdeletekey; Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\Background\shell\ClaudeCodeBest"; \
+    ValueType: string; ValueName: "Icon"; ValueData: "{app}\{#MyAppExeName},0"; \
+    Tasks: contextmenu
+Root: HKCU; Subkey: "Software\Classes\Directory\Background\shell\ClaudeCodeBest\command"; \
+    ValueType: string; ValueName: ""; \
+    ValueData: """{app}\{#MyAppExeName}"" --cwd ""%V"""; \
+    Flags: uninsdeletekey; Tasks: contextmenu
 
 [Run]
 ; Optionally open a welcome page / release notes after install

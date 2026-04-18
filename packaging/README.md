@@ -128,6 +128,7 @@ and adds the directory to the user PATH.
 ## Troubleshooting
 
 ### Windows Terminal not found
+
 `ClaudeCode.exe` automatically falls back to `cmd /k` when `wt.exe` is absent.
 Install via: `winget install Microsoft.WindowsTerminal`
 
@@ -136,6 +137,7 @@ Ensure `vendor/audio-capture/x64-win32/audio-capture.node` is in the **same dire
 `claude-core.exe`. The installer handles this. Voice mode will silently skip if missing.
 
 ### SmartScreen warning on first run
+
 Unsigned executables trigger SmartScreen. Click "More info → Run anyway", or sign the
 binaries with a code-signing certificate.
 
