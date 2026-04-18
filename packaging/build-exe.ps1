@@ -40,7 +40,6 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host "Project root : $ProjectRoot"
 Write-Host "Packaging dir: $PackagingDir"
 Write-Host "Output dir   : $OutputDir"
-Write-Host "pkg target   : $PkgTarget"
 Write-Host ""
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -123,8 +122,8 @@ $vendorAudioDir = Join-Path $ProjectRoot 'vendor\audio-capture'
 
 # Windows-specific architectures
 $winArchDirs = @(
-    Join-Path $vendorAudioDir 'x64-win32',
-    Join-Path $vendorAudioDir 'arm64-win32'
+    (Join-Path $vendorAudioDir 'x64-win32')
+    (Join-Path $vendorAudioDir 'arm64-win32')
 )
 
 foreach ($archDir in $winArchDirs) {
@@ -210,7 +209,8 @@ $isccPaths = @(
 )
 $isccExe = $isccPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $isccExe) {
-    $isccExe = (Get-Command 'iscc' -ErrorAction SilentlyContinue)?.Source
+    $isccCmd = Get-Command 'iscc' -ErrorAction SilentlyContinue
+    if ($isccCmd) { $isccExe = $isccCmd.Source }
 }
 
 if ($isccExe) {

@@ -25,8 +25,17 @@ if (-not (Test-Path $CoreExe -PathType Leaf)) {
     exit 1
 }
 
-# Build forwarded arg string
+# Build forwarded arg string.
+# If the caller already supplied --cwd (e.g. Explorer context-menu passes --cwd "%1"),
+# keep it as-is.  Otherwise capture $PWD.Path so a terminal launch preserves CWD.
 $quoted = @()
+$hasCwd = $PassArgs -contains '--cwd'
+if (-not $hasCwd) {
+    $CallerDir = $PWD.Path
+    $quoted += '--cwd'
+    if ($CallerDir -match '\s') { $quoted += '"' + ($CallerDir -replace '"','\"') + '"' }
+    else                         { $quoted += $CallerDir }
+}
 foreach ($a in $PassArgs) {
     if ($a -match '\s') { $quoted += '"' + ($a -replace '"','\"') + '"' }
     else                 { $quoted += $a }
@@ -77,5 +86,5 @@ if (Test-Path $CmdExe -PathType Leaf) {
         Start-Process -FilePath $CmdExe -ArgumentList "/k `"$CoreExe`""
     }
 } else {
-    Start-Process -FilePath $CoreExe -ArgumentList $PassArgs
+    Start-Process -FilePath $CoreExe -ArgumentList ($quoted -join ' ')
 }
