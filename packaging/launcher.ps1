@@ -28,19 +28,19 @@ if (-not (Test-Path $CoreExe -PathType Leaf)) {
 # Build forwarded arg string.
 # If the caller already supplied --cwd (e.g. Explorer context-menu passes --cwd "%1"),
 # keep it as-is.  Otherwise capture $PWD.Path so a terminal launch preserves CWD.
-$quoted = @()
+$quotedArgs = @()
 $hasCwd = $PassArgs -contains '--cwd'
 if (-not $hasCwd) {
     $CallerDir = $PWD.Path
-    $quoted += '--cwd'
-    if ($CallerDir -match '\s') { $quoted += '"' + ($CallerDir -replace '"','\"') + '"' }
-    else                         { $quoted += $CallerDir }
+    $quotedArgs += '--cwd'
+    if ($CallerDir -match '\s') { $quotedArgs += '"' + ($CallerDir -replace '"','\"') + '"' }
+    else                         { $quotedArgs += $CallerDir }
 }
 foreach ($a in $PassArgs) {
-    if ($a -match '\s') { $quoted += '"' + ($a -replace '"','\"') + '"' }
-    else                 { $quoted += $a }
+    if ($a -match '\s') { $quotedArgs += '"' + ($a -replace '"','\"') + '"' }
+    else                 { $quotedArgs += $a }
 }
-$ArgString = $quoted -join ' '
+$ArgString = $quotedArgs -join ' '
 
 # ── Find wt.exe ───────────────────────────────────────────────────────────────
 $WtExe = $null
@@ -59,35 +59,36 @@ if (-not $WtExe) {
     if ($p) { $WtExe = $p.FullName }
 }
 
-# ── Launch ────────────────────────────────────────────────────────────────────
-# KEY: $CoreExe embeds directly in ONE string with single-level quotes.
-# Do NOT wrap $InnerCmd (which already has quotes) in another set of quotes —
-# that produces ""path"" which cmd.exe splits at the first space.
+# ── Build PowerShell -EncodedCommand payload ──────────────────────────────────
 #
-# Correct wt.exe syntax:
-#   wt.exe --title "Claude Code Best" cmd /k "D:\path with spaces\claude-core.exe"
+# Using cmd /k "path with spaces\exe" is fundamentally broken:
+#   - wt.exe (CRT parser) strips quotes when building argv → path splits at spaces
+#   - cmd.exe /k strips outer quotes → inner path loses quotes → also splits
+#
+# Solution: encode the command as Unicode base64 and pass via -EncodedCommand.
+# Base64 contains no spaces or special chars, so all argument parsers pass it
+# through intact. PowerShell then decodes and runs the command natively, with
+# full support for paths containing spaces via the & '...' call operator.
+
+$EscapedExe  = $CoreExe -replace "'", "''"   # escape single-quotes in path
+$PsCommand   = "& '$EscapedExe'"
+if ($ArgString -ne '') { $PsCommand += " $ArgString" }
+
+$PsCmdBytes   = [System.Text.Encoding]::Unicode.GetBytes($PsCommand)
+$PsCmdEncoded = [System.Convert]::ToBase64String($PsCmdBytes)
+
+# ── Launch ────────────────────────────────────────────────────────────────────
+$PsExe = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 if ($WtExe) {
-    # Double-double-quote pattern: cmd /k ""exe with spaces"" args
-    # cmd.exe strips the outer "" pair, leaving properly-quoted inner "exe" for execution.
-    # Without this, cmd.exe sees: D:\Git Clone\... and splits at the first space.
-    if ($ArgString -ne '') {
-        $WtArgs = "--title `"$WindowTitle`" cmd /k `"`"$CoreExe`" $ArgString`""
-    } else {
-        $WtArgs = "--title `"$WindowTitle`" cmd /k `"`"$CoreExe`"`""
-    }
-    Start-Process -FilePath $WtExe -ArgumentList $WtArgs
+    Start-Process -FilePath $WtExe `
+        -ArgumentList "--title `"$WindowTitle`" powershell -NoLogo -NoExit -EncodedCommand $PsCmdEncoded"
     exit 0
 }
 
-# Fallback: plain cmd.exe /k
-$CmdExe = "$env:SystemRoot\System32\cmd.exe"
-if (Test-Path $CmdExe -PathType Leaf) {
-    if ($ArgString -ne '') {
-        Start-Process -FilePath $CmdExe -ArgumentList "/k `"`"$CoreExe`" $ArgString`""
-    } else {
-        Start-Process -FilePath $CmdExe -ArgumentList "/k `"`"$CoreExe`"`""
-    }
+# Fallback: plain PowerShell window (no wt.exe)
+if (Test-Path $PsExe -PathType Leaf) {
+    Start-Process -FilePath $PsExe -ArgumentList "-NoLogo -NoExit -EncodedCommand $PsCmdEncoded"
 } else {
-    Start-Process -FilePath $CoreExe -ArgumentList ($quoted -join ' ')
+    Start-Process -FilePath $CoreExe -ArgumentList ($quotedArgs -join ' ')
 }
