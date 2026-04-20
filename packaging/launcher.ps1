@@ -25,20 +25,22 @@ if (-not (Test-Path $CoreExe -PathType Leaf)) {
     exit 1
 }
 
-# Build forwarded arg string.
-# If the caller already supplied --cwd (e.g. Explorer context-menu passes --cwd "%1"),
-# keep it as-is.  Otherwise capture $PWD.Path so a terminal launch preserves CWD.
+# Build forwarded arg string (no --cwd; CWD is set via Set-Location in the payload).
+# If the caller passed --cwd <dir> (Explorer context-menu), extract it as the target dir;
+# otherwise use $PWD.Path so a terminal launch preserves the calling directory.
 $quotedArgs = @()
-$hasCwd = $PassArgs -contains '--cwd'
-if (-not $hasCwd) {
-    $CallerDir = $PWD.Path
-    $quotedArgs += '--cwd'
-    if ($CallerDir -match '\s') { $quotedArgs += '"' + ($CallerDir -replace '"','\"') + '"' }
-    else                         { $quotedArgs += $CallerDir }
-}
-foreach ($a in $PassArgs) {
-    if ($a -match '\s') { $quotedArgs += '"' + ($a -replace '"','\"') + '"' }
-    else                 { $quotedArgs += $a }
+$CallerDir  = $PWD.Path
+$i = 0
+while ($i -lt $PassArgs.Count) {
+    if ($PassArgs[$i] -eq '--cwd' -and ($i + 1) -lt $PassArgs.Count) {
+        $CallerDir = $PassArgs[$i + 1]
+        $i += 2
+    } else {
+        $a = $PassArgs[$i]
+        if ($a -match '\s') { $quotedArgs += '"' + ($a -replace '"','\"') + '"' }
+        else                 { $quotedArgs += $a }
+        $i++
+    }
 }
 $ArgString = $quotedArgs -join ' '
 
@@ -70,8 +72,9 @@ if (-not $WtExe) {
 # through intact. PowerShell then decodes and runs the command natively, with
 # full support for paths containing spaces via the & '...' call operator.
 
-$EscapedExe  = $CoreExe -replace "'", "''"   # escape single-quotes in path
-$PsCommand   = "& '$EscapedExe'"
+$EscapedExe  = $CoreExe  -replace "'", "''"
+$EscapedDir  = $CallerDir -replace "'", "''"
+$PsCommand   = "Set-Location '$EscapedDir'; & '$EscapedExe'"
 if ($ArgString -ne '') { $PsCommand += " $ArgString" }
 
 $PsCmdBytes   = [System.Text.Encoding]::Unicode.GetBytes($PsCommand)
